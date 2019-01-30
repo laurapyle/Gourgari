@@ -10,12 +10,12 @@ knitr::opts_chunk$set(echo = FALSE)
 
 library(knitr)
 library(dplyr)
-library(reshape2)
+library(data.table)
+library(tidyr)
 
 ####################################################################################################
 #Data Manipulation #
 ####################################################################################################
-
 
 # read main data sheet
 all <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Preliminary CVD cytokine data/Jenny manifest v4 GRP2 9th Jan 2019.csv",na.strings = c("","NA"," "))
@@ -34,9 +34,14 @@ alldata <- select(alldata,-c("RN","PARENT_ID","SAMPLE_ID","STORAGETYPE","SAMPLEG
 # assign variable for pre vs. post treatment
 alldata <- alldata[order(alldata$ANALYTICID,alldata$COLLECTIONDT),]
 alldata <- alldata %>% group_by(ANALYTICID) %>% mutate(id=row_number())
+alldata$prepost[alldata$id==1] <- "PRE"
+alldata$prepost[alldata$id==2] <- "POST"
+
 
 # calculate deltas
-mdata <- melt(alldata,id=c("ANALYTICID","Treatment.Group","id"))
+alldata$ANALYTICID <- factor(alldata$ANALYTICID)
+test <- alldata[,c("ANALYTICID","IFN.g","prepost")]
+wide <- reshape(test,v.names = "IFN.g",idvar="ANALYTICID",timevar="prepost",direction="wide")
 
 ```
 
