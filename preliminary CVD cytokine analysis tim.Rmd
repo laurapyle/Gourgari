@@ -12,21 +12,20 @@ library(knitr)
 library(dplyr)
 library(data.table)
 library(tidyr)
-library(Hmisc)
 
 ####################################################################################################
 #Data Manipulation #
 ####################################################################################################
 
 # read main data sheet
-all <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Preliminary CVD cytokine data/Jenny manifest v4 GRP2 9th Jan 2019.csv",na.strings = c("","NA"," "))
+all <- read.csv("/Users/timvigers/Downloads/Jenny manifest v4 GRP2 9th Jan 2019.csv",na.strings = c("","NA"," "))
+all$ANALYTICID <- as.character(all$ANALYTICID)
 # delete records with missing data
 all <- all[!is.na(all$IFN.g),]
 
-source("C:/Users/pylell/Documents/GitHub/General-code/temp_table1.r")
-
 # read in randomization
-rand <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Preliminary CVD cytokine data/metformin vs placebo.csv")
+rand <- read.csv("/Users/timvigers/Downloads/metformin vs placebo.csv")
+rand$ANALYTICID <- as.character(rand$ANALYTICID)
 
 # merge datasets
 alldata <- merge(all,rand,by=c("ANALYTICID"))
@@ -40,30 +39,15 @@ alldata <- alldata %>% group_by(ANALYTICID) %>% mutate(id=row_number())
 alldata$prepost[alldata$id==1] <- "PRE"
 alldata$prepost[alldata$id==2] <- "POST"
 
+
+# calculate deltas
+alldata$ANALYTICID <- factor(alldata$ANALYTICID)
+test <- alldata[,c("ANALYTICID","IFN.g","prepost")]
+
 # Tim deltas
 nums <- unlist(lapply(alldata, is.numeric)) 
 deltas <- alldata[alldata$prepost == "POST",nums] - alldata[alldata$prepost == "PRE",nums]
 deltas$ANALYTICID <- alldata$ANALYTICID[alldata$prepost == "PRE"]
-# merge datasets
-deltas <- merge(deltas,rand,by=c("ANALYTICID"))
-
-# labels
-label(deltas$IFN.g)="Change in IFN-g"
-label(deltas$IL.1b)="Change in IL.1b"
-label(deltas$IL.12.IL.23p40)="Change in IL.12.IL.23p40"
-label(deltas$IL.17A)="Change in IL.17A"
-label(deltas$IL.18)="Change in IL.18"
-label(deltas$IL.6)="Change in IL.6"
-label(deltas$IL.8)="Change in IL.8"
-label(deltas$MCP.1..Human.)="Change in MCP.1..Human."
-label(deltas$TNF.a)="Change in TNF.a"
-
-
-# compare deltas in the treatment groups
-table <- final_table(deltas,c("IFN.g","IL.1b","IL.12.IL.23p40","IL.17A","IL.18","IL.6","IL.8","MCP.1..Human.","TNF.a"),
-                     group=as.factor(deltas$Treatment.Group),margin=2,single=0,ron=2)
-
-
 ```
 
 # Background
