@@ -63,22 +63,24 @@ label(deltas$TNF.a)="Change in TNF.a"
 table <- final_table(deltas,c("IFN.g","IL.1b","IL.12.IL.23p40","IL.17A","IL.18","IL.6","IL.8","MCP.1..Human.","TNF.a"),
                      group=as.factor(deltas$Treatment.Group),margin=2,single=0,ron=2)
 
+N <- nrow(deltas)
 
 ```
 
 # Background
 
-  
+The purpose of this analysis is to compare the change in CVD inflammatory markers in participants on metformin to participants on placebo in the T1D Exchange metformin study.
 
 # Methods
 
+The change in each inflammatory marker was calculated as the post-treatment value minus the pre-treatment value.  The distributions of these changes were examined prior to analysis.  For normally distributed variables, the mean and standard deviation were calculated, and groups were compared using t-tests.  For variables that were not normally distributed, the median, 25th and 75th percentiles were calculated, and the groups were compared using the Mann Whitney test.
 
 # Results
 
-There were `r N` subjects included in this analysis.  Descriptive statistics are shown in Table 1.
+There were `r N` subjects included in this analysis.  Changes in inflammatory CVD markers are shown in Table 1.
 
 ```{r, results='asis',tidy=TRUE, echo=FALSE}
-kable(tab1,caption="Table 1.  Descriptive statistics.  Asterisks indicate that Fisher's exact test was used instead of the chi-square test due to small expected cell value.")
+kable(table,caption="Table 1.  Change in CVD inflammatory markers in metformin and placebo groups.  Descriptive statistics are mean ± standard deviation for normally distributed variables, or median (25th percentile, 75th percentile for variables that were not normally distributed.  Normally distributed variables were compared using t-tests; variables that were not normally distributed were compared using the Mann Whitney test.")
 ```
 
 
