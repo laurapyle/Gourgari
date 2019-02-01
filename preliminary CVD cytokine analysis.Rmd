@@ -13,13 +13,14 @@ library(dplyr)
 library(data.table)
 library(tidyr)
 library(Hmisc)
+library(rmarkdown)
 
 ####################################################################################################
 #Data Manipulation #
 ####################################################################################################
 
 # read main data sheet
-all <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Preliminary CVD cytokine data/Jenny manifest v4 GRP2 9th Jan 2019.csv",na.strings = c("","NA"," "))
+all <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Preliminary CVD cytokine data/Jenny manifest v4 GRP2 9th Jan 2019.csv",na.strings = c("","NA"," ","error"))
 # delete records with missing data
 all <- all[!is.na(all$IFN.g),]
 
@@ -57,13 +58,39 @@ label(deltas$IL.6)="Change in IL.6"
 label(deltas$IL.8)="Change in IL.8"
 label(deltas$MCP.1..Human.)="Change in MCP.1..Human."
 label(deltas$TNF.a)="Change in TNF.a"
-
+label(deltas$il17F)="Change in IL17F"
 
 # compare deltas in the treatment groups
-table <- final_table(deltas,c("IFN.g","IL.1b","IL.12.IL.23p40","IL.17A","IL.18","IL.6","IL.8","MCP.1..Human.","TNF.a"),
+table <- final_table(deltas,c("IFN.g","IL.1b","IL.12.IL.23p40","IL.17A","IL.18","IL.6","IL.8","MCP.1..Human.","TNF.a","il17F"),
                      group=as.factor(deltas$Treatment.Group),margin=2,single=0,ron=2)
 
 N <- nrow(deltas)
+
+# adjust for baseline
+base <- alldata[alldata$prepost=="PRE",]
+base <- select(base,-c("COLLECTIONDT","Treatment.Group","id","prepost"))
+setnames(base,"IFN.g","IFN.g_base")
+setnames(base,"IL.1b","IL.1b_base")
+setnames(base,"IL.12.IL.23p40","IL.12.IL.23p40_base")
+setnames(base,"IL.17A","IL.17A_base")
+setnames(base,"IL.18","IL.18_base")
+setnames(base,"IL.6","IL.6_base")
+setnames(base,"IL.8","IL.8_base")
+setnames(base,"il17F","il17F_base")
+setnames(base,"MCP.1..Human.","MCP.1..Human._base")
+setnames(base,"TNF.a","TNF.a_base")
+deltas <- merge(deltas,base,by="ANALYTICID")
+mod1 <- lm(data=deltas,IFN.g ~ as.factor(Treatment.Group) + IFN.g_base)
+mod2 <- lm(data=deltas,IL.1b ~ as.factor(Treatment.Group) + IL.1b_base)
+mod3 <- lm(data=deltas,IL.12.IL.23p40 ~ as.factor(Treatment.Group) + IL.12.IL.23p40_base)
+mod4 <- lm(data=deltas, IL.17A ~ as.factor(Treatment.Group) + IL.17A_base)
+mod5 <- lm(data=deltas, IL.18~ as.factor(Treatment.Group) + IL.18_base)
+mod6 <- lm(data=deltas, IL.6 ~ as.factor(Treatment.Group) + IL.6_base)
+mod7 <- lm(data=deltas, IL.8 ~ as.factor(Treatment.Group) + IL.8_base)
+mod8 <- lm(data=deltas, il17F ~ as.factor(Treatment.Group) + il17F_base)
+mod9 <- lm(data=deltas, MCP.1..Human. ~ as.factor(Treatment.Group) + MCP.1..Human._base)
+mod10 <- lm(data=deltas, TNF.a ~ as.factor(Treatment.Group) + TNF.a_base)
+
 
 ```
 
@@ -75,6 +102,8 @@ The purpose of this analysis is to compare the change in CVD inflammatory marker
 
 The change in each inflammatory marker was calculated as the post-treatment value minus the pre-treatment value.  The distributions of these changes were examined prior to analysis.  For normally distributed variables, the mean and standard deviation were calculated, and groups were compared using t-tests.  For variables that were not normally distributed, the median, 25th and 75th percentiles were calculated, and the groups were compared using the Mann Whitney test.
 
+Linear models adjusted for the baseline value of the marker were also used to compare changes in the two groups.
+
 # Results
 
 There were `r N` subjects included in this analysis.  Changes in inflammatory CVD markers are shown in Table 1.
@@ -82,5 +111,60 @@ There were `r N` subjects included in this analysis.  Changes in inflammatory CV
 ```{r, results='asis',tidy=TRUE, echo=FALSE}
 kable(table,caption="Table 1.  Change in CVD inflammatory markers in metformin and placebo groups.  Descriptive statistics are mean ± standard deviation for normally distributed variables, or median (25th percentile, 75th percentile for variables that were not normally distributed.  Normally distributed variables were compared using t-tests; variables that were not normally distributed were compared using the Mann Whitney test.")
 ```
+
+Tables 2-11 show the results of the linear models adjusted for the baseline values of the markers.
+
+```{r, results='asis',tidy=TRUE, echo=FALSE}
+print(kable(summary(mod1)$coefficients,caption="Table 2.  Change in IFN.g adjusted for baseline."))
+
+```
+ <br/>
+ 
+```{r, results='asis',tidy=TRUE, echo=FALSE}
+print(kable(summary(mod2)$coefficients,caption="Table 3.  Change in IL.1b adjusted for baseline."))
+```
+ <br/>
+ 
+``` {r, results='asis',tidy=TRUE, echo=FALSE}
+kable(summary(mod3)$coefficients,caption="Table 4.  Change in IL.12.IL.23p40 adjusted for baseline.")
+```
+ <br/>
+ 
+```{r, results='asis',tidy=TRUE, echo=FALSE}
+kable(summary(mod4)$coefficients,caption="Table 5.  Change in IL.17A adjusted for baseline.")
+```
+ <br/>
+ 
+```{r, results='asis',tidy=TRUE, echo=FALSE}
+kable(summary(mod5)$coefficients,caption="Table 6.  Change in IL.18 adjusted for baseline.")
+```
+ <br/>
+ 
+```{r, results='asis',tidy=TRUE, echo=FALSE}
+kable(summary(mod6)$coefficients,caption="Table 7.  Change in IL.6 adjusted for baseline.")
+```
+ <br/>
+ 
+```{r, results='asis',tidy=TRUE, echo=FALSE}
+kable(summary(mod7)$coefficients,caption="Table 8.  Change in IL.8 adjusted for baseline.")
+```
+ <br/>
+ 
+```{r, results='asis',tidy=TRUE, echo=FALSE}
+kable(summary(mod8)$coefficients,caption="Table 9.  Change in il17F adjusted for baseline.")
+```
+ <br/>
+ 
+```{r, results='asis',tidy=TRUE, echo=FALSE}
+kable(summary(mod9)$coefficients,caption="Table 10.  Change in MCP.1..Human. adjusted for baseline.")
+```
+ <br/>
+ 
+```{r, results='asis',tidy=TRUE, echo=FALSE}
+kable(summary(mod10)$coefficients,caption="Table 11.  Change in TNF.a adjusted for baseline.")
+
+```
+
+
 
 
