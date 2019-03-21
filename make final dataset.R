@@ -36,9 +36,18 @@ proteins <- subset(proteins,select=-c(group))
 ####  CYTOKINE DATA ######
 all <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Preliminary CVD cytokine data/Jenny manifest v4 GRP2 9th Jan 2019.csv",na.strings = c("","NA"," ","error"))
 # delete records with missing data
-all <- all[!is.na(all$IFN.g),]
+cytokine <- all[!is.na(all$IFN.g),]
+cytokine$date <- cytokine$COLLECTIONDT
+cytokine$analyticid <- cytokine$ANALYTICID
 # get rid of unneeded variables
-cytokine <- select(all,-c("RN","PARENT_ID","SAMPLE_ID","STORAGETYPE","SAMPLEGROUP","BOX.ID","NO.","ROW","COL","pg.ml","X"))
+cytokine <- select(cytokine,-c("RN","PARENT_ID","SAMPLE_ID","STORAGETYPE","SAMPLEGROUP","BOX.ID","NO.","ROW","COL","pg.ml","X",
+                               "COLLECTIONDT","ANALYTICID"))
+cytokine$date <- mdy(cytokine$date)
+
+# merge cytokine data and protein data and check if there are any records in one but not the other
+cytokine_protein <- merge(cytokine, proteins, by=c("analyticid","date"),all.x = TRUE,all.y = TRUE)
+test <- cytokine_protein[,c("analyticid","date","IFN.g","sp|P01024|CO3_HUMAN")]
+write.csv(test,"H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/checking cytokine protein dates.csv")
 
 ####  RANDOMIZATION DATA ######
 rand <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Clinical data/metformin vs placebo.csv")
