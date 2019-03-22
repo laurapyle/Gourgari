@@ -7,6 +7,7 @@ library(knitr)
 library(data.table)
 library(tidyr)
 library(Hmisc)
+library(childsds)
 
 
 ####  PROTEOMICS DATA ######
@@ -71,7 +72,7 @@ alldata <- alldata[!is.na(alldata$visit),]
 
 # anthro file - only visit needed is 6 months
 anthro <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Clinical data/031319_BOC031_LabValuesVisits_anthro.csv")
-anthro <- anthro[anthro$Visit=="26 week",]
+anthro <- anthro[anthro$Visit %in% c("26 week","26 Week"),]
 anthro$Visit <- rep("6 month",nrow(anthro))
 anthro$analyticid <- anthro$ID
 anthro$visit <- anthro$Visit
@@ -81,8 +82,8 @@ alldata <- alldata[order(alldata$analyticid, alldata$date),]
 
 # a1c data
 a1c <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Clinical data/031319_BOC031_LabValuesVisits_a1c.csv")
-a1c <- a1c[a1c$Visit %in% c("26 week","Screening"),]
-a1c$visit[a1c$Visit=="26 week"] <- "6 month"
+a1c <- a1c[a1c$Visit %in% c("26 week","Screening","26 Week"),]
+a1c$visit[a1c$Visit %in% c("26 week","26 Week")] <- "6 month"
 a1c$visit[a1c$Visit=="Screening"] <- "Baseline"
 a1c$analyticid <- a1c$ID
 a1c <- select(a1c,-c("ID","Visit","Method"))
@@ -91,10 +92,17 @@ alldata <- alldata[order(alldata$analyticid, alldata$date),]
 
 # labs
 labs <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Clinical data/031319_BOC031_LabValuesVisits_Labs.csv")
+# adipo data
+adipo <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Clinical data/030719_BOC031_Analytes_adipokines.csv")
+colnames(adipo) <- c("ID","Visit","Analyte","Value","Units")
+# deduplicate the adipokines
+adipo <- unique(adipo)
+adipo <- adipo[order(adipo$ID,adipo$Visit,adipo$Analyte),]
+labs <- rbind(labs,adipo)
 # make lab dataset one record per visit
-labs <- labs[labs$Visit %in% c("Randomization","26 week"),]
+labs <- labs[labs$Visit %in% c("Randomization","26 week","26 Week"),]
 labs$visit[labs$Visit=="Randomization"] <- "Baseline"
-labs$visit[labs$Visit=="26 week"] <- "6 month"
+labs$visit[labs$Visit %in% c("26 week","26 Week")] <- "6 month"
 labs$analyticid <- labs$ID
 labs <- select(labs,-c("ID","Visit","Units"))
 labs <- labs[order(labs$analyticid, labs$visit),]
@@ -107,23 +115,47 @@ by_patient_sort<-function(ID,visit,data){
     ##test on single subject
     #dat.temp<-subset(nont1d,nont1d$Random_ID==146184)
     ###new code
-    dat.temp <- reshape(dat.temp,idvar = "analyticid",timevar = "visit",v.names = "analyte")
+    dat.temp <- reshape(dat.temp,idvar = c("analyticid","visit"),timevar = "Analyte",v.names = "Value",direction="wide")
   })
   #this binds together all of the mini patient datasets
   dat<-do.call(rbind,temp)
 }
 #use this to call the function
-test<- by_patient_sort(labs$analyticid,labs$visit,labs) 
+labs_wide <- by_patient_sort(labs$analyticid,labs$visit,labs) 
+alldata <- merge(alldata,labs_wide,by=c("analyticid","visit"),all.x=TRUE, all.y=FALSE)
+alldata <- alldata[order(alldata$analyticid, alldata$date),]
 
-test <- subset(labs,labs$analyticid=="031-0019")
-test2 <- reshape(test,idvar = c("analyticid","visit"),timevar = "Analyte",v.names = "Value",direction="wide")
-
-adipo <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Clinical data/030719_BOC031_Analytes_adipokines.csv")
+# first clinical data pull
 jan <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Clinical data/011518_BOC031_Data Pull.csv")
+jan$analyticid <- jan$ANALYTICID
+jan <- select(jan,c("analyticid","Age","Gender","Race","Ethnicity"))
+alldata <- merge(alldata,jan,by="analyticid",all.x=TRUE, all.y=FALSE)
+alldata <- alldata[order(alldata$analyticid, alldata$date),]
+
+# second clinical data pull
 oct <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Clinical data/BOC031Data Pull 10_11_18.csv")
+oct <- oct[oct$Visit=="A)baseline",]
+oct$analyticid <- oct$Analytic.ID
+oct$visit <- rep("Baseline",nrow(oct))
+oct$weight <- as.numeric(as.character(oct$Weight))
+oct$height <- as.numeric(as.character(oct$Height))
+oct$DEXAPercFat <- as.numeric(as.character(oct$DEXAPercFat))
+oct <- select(oct,-c("Analytic.ID","Visit","Weight","Height","UnitsInsTotalPumpDload"))
+alldata <- merge(alldata,oct_keep, by=c("analyticid","visit"),all.x=TRUE,all.y=FALSE)
+alldata$weight.x[is.na(alldata$weight.x)] <- alldata$weight.y[is.na(alldata$weight.x)] 
+alldata$height.x[is.na(alldata$height.x)] <- alldata$height.y[is.na(alldata$height.x)]
+alldata$weight <- alldata$weight.x
+alldata$height <- alldata$height.x
+alldata <- select(alldata,-c("weight.x","weight.y","height.x","height.y"))
 
-
-
+# calculate BMI
+alldata$bmi <- alldata$weight/((alldata$height/100)^2)
+alldata$bmi_perc <- sds(alldata$bmi,
+                       age = alldata$Age,
+                       sex = alldata$Gender, male = "M", female = "F",
+                       ref = cdc.ref,
+                       item = "bmi",
+                       type = "perc")*100
 
 # need link between visit number and dates in order to merge all the data
 # here are the variables and the files they are found in
@@ -142,5 +174,20 @@ oct <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/
 # ins    - 101118 pull
 # Tanner - 101118 pull
 
-
 ####  EFFLUX DATA ######
+efflux1 <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Efflux data/Jenny proteome efflux for me.csv")
+efflux1 <- efflux1[!is.na(efflux1$efflux.value),]
+efflux1$analyticid <- efflux1$ANALYTICID
+efflux1$date <- efflux1$COLLECTIONDT
+efflux1 <- select(efflux1,c("analyticid","date","efflux.value"))
+efflux2 <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Efflux data/Copy of Jenny manifest v4 GRP2 march 2019.csv")
+efflux2 <- efflux2[!is.na(efflux2$cholesterol.efflux),]
+efflux2$analyticid <- efflux2$ANALYTICID
+efflux2$date <- efflux2$COLLECTIONDT
+efflux2$efflux.value <- efflux2$cholesterol.efflux
+efflux2 <- select(efflux2,c("analyticid","date","efflux.value"))
+efflux <- rbind(efflux1,efflux2)
+# merge back into alldata, but there are more people in efflux than proteins/alldata
+# probably need to go back and start with the efflux data, and keep all the visits in the other data sources that correspond to efflux
+# end with the proteins and keep all with efflux data?
+alldata <- merge(alldata,efflux,by=c("analyticid","date"))
