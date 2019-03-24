@@ -9,6 +9,23 @@ library(tidyr)
 library(Hmisc)
 library(childsds)
 
+####  EFFLUX DATA ######
+efflux1 <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Efflux data/Jenny proteome efflux for me.csv")
+efflux1 <- efflux1[!is.na(efflux1$efflux.value),]
+efflux1$analyticid <- efflux1$ANALYTICID
+efflux1$date <- efflux1$COLLECTIONDT
+efflux1 <- select(efflux1,c("analyticid","date","efflux.value"))
+efflux2 <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Efflux data/Copy of Jenny manifest v4 GRP2 march 2019.csv")
+efflux2 <- efflux2[!is.na(efflux2$cholesterol.efflux),]
+efflux2$analyticid <- efflux2$ANALYTICID
+efflux2$date <- efflux2$COLLECTIONDT
+efflux2$efflux.value <- efflux2$cholesterol.efflux
+efflux2 <- select(efflux2,c("analyticid","date","efflux.value"))
+alldata <- rbind(efflux1,efflux2)
+alldata <- alldata[order(alldata$analyticid, alldata$date),]
+# emailed Jenny - there are two different sets of results for the same patient in these two files
+# after she responds, decide which records to keep
+# then go through the rest of this code and make sure it merges everything correctly
 
 ####  PROTEOMICS DATA ######
 filename <- "H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Proteomics data/experimentcodes.csv"
@@ -40,6 +57,8 @@ paired <- proteins$analyticid[duplicated(proteins$analyticid)]
 proteins <- proteins[which(proteins$analyticid %in% paired),]
 visits <- rep(c("Baseline","6 month"),length(paired))
 proteins$visit <- visits
+alldata <- merge(alldata,proteins,by=c("analyticid","date"),all.x=TRUE, all.y=FALSE)
+alldata <- alldata[order(alldata$analyticid, alldata$date),]
 
 ####  CYTOKINE DATA ######
 all <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Preliminary CVD cytokine data/Jenny manifest v4 GRP2 9th Jan 2019.csv",na.strings = c("","NA"," ","error"))
@@ -51,18 +70,14 @@ cytokine$analyticid <- cytokine$ANALYTICID
 cytokine <- select(cytokine,-c("RN","PARENT_ID","SAMPLE_ID","STORAGETYPE","SAMPLEGROUP","BOX.ID","NO.","ROW","COL","pg.ml","X",
                                "COLLECTIONDT","ANALYTICID"))
 cytokine$date <- mdy(cytokine$date)
-
-# merge cytokine data and protein data and check if there are any records in one but not the other
-cytokine_protein <- merge(cytokine, proteins, by=c("analyticid","date"),all.x = TRUE,all.y = TRUE)
-test <- cytokine_protein[,c("analyticid","date","IFN.g","sp|P01024|CO3_HUMAN")]
-#write.csv(test,"H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/checking cytokine protein dates.csv")
-# only a random subset of samples had cytokines measured, so would not expect all samples to have these results
+alldata <- merge(alldata,cytokine,by=c("analyticid","visit"),all.x=TRUE, all.y=FALSE)
+alldata <- alldata[order(alldata$analyticid, alldata$date),]
 
 ####  RANDOMIZATION DATA ######
 rand <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Clinical data/metformin vs placebo.csv")
 rand$analyticid <- rand$ANALYTICID
 rand <- select(rand,-"ANALYTICID")
-alldata <- merge(cytokine_protein,rand,by="analyticid",all.x = TRUE,all.y=TRUE)
+alldata <- merge(alldata,rand,by="analyticid",all.x = TRUE,all.y=TRUE)
 # get rid of missing visit numbers - these were in cytokine file but not proteins and we won't know what visit they are
 alldata <- alldata[!is.na(alldata$visit),]
 
@@ -174,20 +189,3 @@ alldata$bmi_perc <- sds(alldata$bmi,
 # ins    - 101118 pull
 # Tanner - 101118 pull
 
-####  EFFLUX DATA ######
-efflux1 <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Efflux data/Jenny proteome efflux for me.csv")
-efflux1 <- efflux1[!is.na(efflux1$efflux.value),]
-efflux1$analyticid <- efflux1$ANALYTICID
-efflux1$date <- efflux1$COLLECTIONDT
-efflux1 <- select(efflux1,c("analyticid","date","efflux.value"))
-efflux2 <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Efflux data/Copy of Jenny manifest v4 GRP2 march 2019.csv")
-efflux2 <- efflux2[!is.na(efflux2$cholesterol.efflux),]
-efflux2$analyticid <- efflux2$ANALYTICID
-efflux2$date <- efflux2$COLLECTIONDT
-efflux2$efflux.value <- efflux2$cholesterol.efflux
-efflux2 <- select(efflux2,c("analyticid","date","efflux.value"))
-efflux <- rbind(efflux1,efflux2)
-# merge back into alldata, but there are more people in efflux than proteins/alldata
-# probably need to go back and start with the efflux data, and keep all the visits in the other data sources that correspond to efflux
-# end with the proteins and keep all with efflux data?
-alldata <- merge(alldata,efflux,by=c("analyticid","date"))
