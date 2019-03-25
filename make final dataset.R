@@ -27,6 +27,11 @@ alldata <- alldata[order(alldata$analyticid, alldata$date),]
 # after she responds, decide which records to keep
 # then go through the rest of this code and make sure it merges everything correctly
 
+# figure out who has duplicate efflux results
+check <- alldata %>% add_count(analyticid) %>% filter(n==4)
+write.csv(check,"H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Efflux data/duplicate results.csv")
+
+
 ####  PROTEOMICS DATA ######
 filename <- "H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Proteomics data/experimentcodes.csv"
 codes <- read.csv(filename)
