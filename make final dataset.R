@@ -10,33 +10,47 @@ library(Hmisc)
 library(childsds)
 
 ####  EFFLUX DATA ######
-efflux1 <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Efflux data/Jenny proteome efflux for me.csv")
-efflux1 <- efflux1[!is.na(efflux1$efflux.value),]
-efflux1$analyticid <- efflux1$ANALYTICID
-efflux1$date <- efflux1$COLLECTIONDT
-efflux1 <- select(efflux1,c("analyticid","date","efflux.value"))
-efflux2 <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Efflux data/Copy of Jenny manifest v4 GRP2 march 2019.csv")
+# NOTE: there are two datasets with efflux data
+# after discussion with Jenny, we will use the "Copy of Jenny manifest file" as the main datasource 
+# and use "Jenny proteome" file results only for people who do not have results in the main datasource
+
+# read in both datasets
+efflux2 <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Efflux data/Copy of Jenny manifest v4 GRP2 march 2019.csv",
+                    stringsAsFactors = FALSE)
 efflux2 <- efflux2[!is.na(efflux2$cholesterol.efflux),]
 efflux2$analyticid <- efflux2$ANALYTICID
-efflux2$date <- efflux2$COLLECTIONDT
+efflux2$date <- mdy(efflux2$COLLECTIONDT)
 efflux2$efflux.value <- efflux2$cholesterol.efflux
 efflux2 <- select(efflux2,c("analyticid","date","efflux.value"))
-alldata <- rbind(efflux1,efflux2)
+efflux1 <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Efflux data/Jenny proteome efflux for me.csv",
+                    stringsAsFactors = FALSE)
+efflux1 <- efflux1[!is.na(efflux1$efflux.value),]
+efflux1$analyticid <- efflux1$ANALYTICID
+efflux1$date <- mdy(efflux1$COLLECTIONDT)
+efflux1 <- select(efflux1,c("analyticid","date","efflux.value"))
+# keep only analyticids in efflux1 that are not in efflux2
+inefflux2 <- efflux2$analyticid
+keep_efflux1 <- efflux1[which(!(efflux1$analyticid %in% inefflux2)),]
+# combine datasets
+alldata <- rbind(efflux2,keep_efflux1)
+# add visit number to efflux dataset - first visit is baseline, second is 6 mo
 alldata <- alldata[order(alldata$analyticid, alldata$date),]
-# emailed Jenny - there are two different sets of results for the same patient in these two files
-# after she responds, decide which records to keep
-# then go through the rest of this code and make sure it merges everything correctly
+# only keep paired observations, otherwise we can't tell what visit is which
+paired <- alldata$analyticid[duplicated(alldata$analyticid)]
+alldata <- alldata[which(alldata$analyticid %in% paired),]
+visits <- rep(c("Baseline","6 month"),length(paired))
+alldata$visit <- visits
 
 # figure out who has duplicate efflux results
-check <- alldata %>% add_count(analyticid) %>% filter(n==4)
-write.csv(check,"H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Efflux data/duplicate results.csv")
+#check <- alldata %>% add_count(analyticid) %>% filter(n==4)
+#write.csv(check,"H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Efflux data/duplicate results.csv")
 
 
 ####  PROTEOMICS DATA ######
 filename <- "H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Proteomics data/experimentcodes.csv"
-codes <- read.csv(filename)
+codes <- read.csv(filename,stringsAsFactors = FALSE)
 filename <-  "H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Proteomics data//proteinquant.csv"
-proteins <- read.csv(filename,header = FALSE)
+proteins <- read.csv(filename,header = FALSE,stringsAsFactors = FALSE)
 # Transpose and format protein concentration data
 proteins <- t(proteins)
 proteins[1,1] <- "subjectid"
@@ -55,14 +69,7 @@ proteins$group <- ifelse(proteins$group == "Group 3","Metformin","Placebo")
 proteins$date <- mdy(proteins$date)
 # DROP GROUP - WILL GET THIS FROM THE RANDOMIZATION FILE
 proteins <- subset(proteins,select=-c(group))
-# add visit number to protein dataset - first visit is baseline, second is 6 mo
-proteins <- proteins[order(proteins$analyticid, proteins$date),]
-# only keep paired observations, otherwise we can't tell what visit is which
-paired <- proteins$analyticid[duplicated(proteins$analyticid)]
-proteins <- proteins[which(proteins$analyticid %in% paired),]
-visits <- rep(c("Baseline","6 month"),length(paired))
-proteins$visit <- visits
-alldata <- merge(alldata,proteins,by=c("analyticid","date"),all.x=TRUE, all.y=FALSE)
+alldata <- merge(alldata,proteins,by=c("analyticid","date"),all.x=TRUE, all.y=TRUE)
 alldata <- alldata[order(alldata$analyticid, alldata$date),]
 
 ####  CYTOKINE DATA ######
@@ -75,7 +82,7 @@ cytokine$analyticid <- cytokine$ANALYTICID
 cytokine <- select(cytokine,-c("RN","PARENT_ID","SAMPLE_ID","STORAGETYPE","SAMPLEGROUP","BOX.ID","NO.","ROW","COL","pg.ml","X",
                                "COLLECTIONDT","ANALYTICID"))
 cytokine$date <- mdy(cytokine$date)
-alldata <- merge(alldata,cytokine,by=c("analyticid","visit"),all.x=TRUE, all.y=FALSE)
+alldata <- merge(alldata,cytokine,by=c("analyticid","date"),all.x=TRUE, all.y=FALSE)
 alldata <- alldata[order(alldata$analyticid, alldata$date),]
 
 ####  RANDOMIZATION DATA ######
@@ -161,7 +168,7 @@ oct$weight <- as.numeric(as.character(oct$Weight))
 oct$height <- as.numeric(as.character(oct$Height))
 oct$DEXAPercFat <- as.numeric(as.character(oct$DEXAPercFat))
 oct <- select(oct,-c("Analytic.ID","Visit","Weight","Height","UnitsInsTotalPumpDload"))
-alldata <- merge(alldata,oct_keep, by=c("analyticid","visit"),all.x=TRUE,all.y=FALSE)
+alldata <- merge(alldata,oct, by=c("analyticid","visit"),all.x=TRUE,all.y=FALSE)
 alldata$weight.x[is.na(alldata$weight.x)] <- alldata$weight.y[is.na(alldata$weight.x)] 
 alldata$height.x[is.na(alldata$height.x)] <- alldata$height.y[is.na(alldata$height.x)]
 alldata$weight <- alldata$weight.x
@@ -177,20 +184,5 @@ alldata$bmi_perc <- sds(alldata$bmi,
                        item = "bmi",
                        type = "perc")*100
 
-# need link between visit number and dates in order to merge all the data
-# here are the variables and the files they are found in
-# height - anthro
-# weight - anthro
-# sex    - 011518 pull
-# age    - 011518 pull
-# A1c    - a1c
-# % fat  - anthro
-# LDL    - labs
-# HDL    - labs
-# trig   - labs
-# waist  - 101118 pull
-# adip   - adipokines
-# DBP    - 101118 pull
-# ins    - 101118 pull
-# Tanner - 101118 pull
+
 
