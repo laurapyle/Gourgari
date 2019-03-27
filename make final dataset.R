@@ -213,8 +213,8 @@ alldata <- merge(alldata,vars,by="analyticid",all.x = TRUE,all.y = TRUE)
 alldata <- alldata[order(alldata$analyticid, alldata$date),]
 
 # fix non-numeric variables
-alldata$bmiperc <- alldata$bmi_perc$res
-alldata <- select(alldata,-bmi_perc)
+#alldata$bmiperc <- alldata$bmi_perc$res
+#alldata <- select(alldata,-bmi_perc)
 nonnum <- c("analyticid","visit","date","Treatment.Group","UnitsInsTotalPumpOrLog","InsDeliveryMethod","Gender",
             "Race","Ethnicity","TannerPubicH","TannerBreGen")
 temp <- colnames(alldata)
