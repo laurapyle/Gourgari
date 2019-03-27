@@ -8,6 +8,7 @@ library(data.table)
 library(tidyr)
 library(Hmisc)
 library(childsds)
+library(zoo)
 
 ####  EFFLUX DATA ######
 # NOTE: there are two datasets with efflux data
@@ -161,9 +162,10 @@ alldata <- alldata[order(alldata$analyticid, alldata$date),]
 
 # second clinical data pull
 oct <- read.csv("H:/Endocrinology/Nadeau/T1D Exchange metformin and lipids/Data/Clinical data/BOC031Data Pull 10_11_18.csv")
-oct <- oct[oct$Visit=="A)baseline",]
+oct <- oct[oct$Visit %in% c("A)baseline","I)26 week"),]
 oct$analyticid <- oct$Analytic.ID
-oct$visit <- rep("Baseline",nrow(oct))
+oct$visit[oct$Visit=="A)baseline"] <- "Baseline"
+oct$visit[oct$Visit=="I)26 week"] <- "6 month"
 oct$weight <- as.numeric(as.character(oct$Weight))
 oct$height <- as.numeric(as.character(oct$Height))
 oct$DEXAPercFat <- as.numeric(as.character(oct$DEXAPercFat))
@@ -173,7 +175,9 @@ alldata$weight.x[is.na(alldata$weight.x)] <- alldata$weight.y[is.na(alldata$weig
 alldata$height.x[is.na(alldata$height.x)] <- alldata$height.y[is.na(alldata$height.x)]
 alldata$weight <- alldata$weight.x
 alldata$height <- alldata$height.x
-alldata <- select(alldata,-c("weight.x","weight.y","height.x","height.y"))
+alldata$DEXAPercFat.x[is.na(alldata$DEXAPercFat.x)] <- alldata$DEXAPercFat.y[is.na(alldata$DEXAPercFat.x)]
+alldata$DEXAPercFat <- alldata$DEXAPercFat.x
+alldata <- select(alldata,-c("weight.x","weight.y","height.x","height.y","DEXAPercFat.x","DEXAPercFat.y"))
 
 # calculate BMI
 alldata$bmi <- alldata$weight/((alldata$height/100)^2)
@@ -184,5 +188,53 @@ alldata$bmi_perc <- sds(alldata$bmi,
                        item = "bmi",
                        type = "perc")*100
 
+# calculate eIS
+#exp (4.06154 ??? 0.01317 * waist [cm] ??? 1.09615 * insulin dose [daily units per kg] 
+#     + 0.02027 * adiponectin [??g/mL] ??? 0.27168 * triglycerides [mmol/L (???0.00307 for mg/dL)] ??? 0.00733 * DBP [mm Hg])
+alldata$units_per_kg <- as.numeric(as.character(alldata$UnitsInsTotal))/alldata$weight
+alldata$adipo_ugml <- as.numeric(as.character(alldata$Value.ADIP))/1000
+alldata$eis[!is.na(alldata$adipo_ugml)] <- exp(4.06154 - 0.01317 * as.numeric(as.character(alldata$WaistCircum[!is.na(alldata$adipo_ugml)])) 
+                    - 1.09615 * alldata$units_per_kg[!is.na(alldata$adipo_ugml)]
+                    + 0.02027 * alldata$adipo_ugml[!is.na(alldata$adipo_ugml)] 
+                    -0.00307 * as.numeric(as.character(alldata$`Value.TG-NET`[!is.na(alldata$adipo_ugml)])) 
+                    - 0.00733 * as.numeric(as.character(alldata$BldPrDia[!is.na(alldata$adipo_ugml)])))
+# for visits missing adiponectin
+alldata$eis[is.na(alldata$adipo_ugml)] <- exp(4.1075 - 0.01299 * as.numeric(as.character(alldata$WaistCircum[is.na(alldata$adipo_ugml)])) 
+                                              - 1.05819 * alldata$units_per_kg[is.na(alldata$adipo_ugml)]
+                                              -0.00354 * as.numeric(as.character(alldata$`Value.TG-NET`[is.na(alldata$adipo_ugml)])) 
+                                              - 0.00802 * as.numeric(as.character(alldata$BldPrDia[is.na(alldata$adipo_ugml)])))
+
+# fill in baseline characteristics across visits
+vars <- alldata[,c("analyticid","visit","Age","Gender","Race","Ethnicity","TannerPubicH","TannerBreGen")]
+vars <- vars[vars$visit=="Baseline",]
+vars <- select(vars,-"visit")
+alldata <- select(alldata,-c("Age","Gender","Race","Ethnicity","TannerPubicH","TannerBreGen"))
+alldata <- merge(alldata,vars,by="analyticid",all.x = TRUE,all.y = TRUE)
+alldata <- alldata[order(alldata$analyticid, alldata$date),]
+
+# fix non-numeric variables
+alldata$bmiperc <- alldata$bmi_perc$res
+alldata <- select(alldata,-bmi_perc)
+nonnum <- c("analyticid","visit","date","Treatment.Group","UnitsInsTotalPumpOrLog","InsDeliveryMethod","Gender",
+            "Race","Ethnicity","TannerPubicH","TannerBreGen")
+temp <- colnames(alldata)
+num <- temp[!(temp %in% nonnum)]
+alldata[,num] <-  sapply(alldata[,num],function(x) as.numeric(as.character(x)))
+
+# need to combine race/ethnicity 
+alldata$raceeth[alldata$Ethnicity=="Hispanic or Latino"] <- "Hispanic"
+alldata$raceeth[alldata$Ethnicity !="Hispanic or Latino" & alldata$Race=="White"] <- "Non-hispanic White"
+alldata$raceeth[is.na(alldata$raceeth)] <- "Other"
+
+# labels
+var.labels <- colnames(alldata)
+for(i in seq_along(alldata)){
+  Hmisc::label(alldata[, i]) <- var.labels[i]
+}
+label(alldata$raceeth) = "Race/ethnicity"
+label(alldata$TannerBreGen) = "Tanner by breasts/genitals"
+label(alldata$TannerPubicH) = "Tanner by pubic hair"
+label(alldata$Age)="Age"
+label(alldata$Gender)="Gender"
 
 

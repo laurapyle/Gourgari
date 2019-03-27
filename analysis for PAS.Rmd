@@ -8,7 +8,95 @@ output: word_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE,warning = FALSE)
 
+library(tableone)
+library(Hmisc)
+
 source("C:/Users/pylell/Documents/GitHub/Gourgari/make final dataset.R")
+
+source("c:/Users/pylell/Documents/GitHub/General-code/temp_table1.r")
+
+# for subjects with protein data, make a wide dataset and calculate deltas for protein and clinical variables
+hasproteins <- alldata[!is.na(alldata$subjectid),]
+# make a wide dataset for those with protein dataset
+hasproteins_keep <- select(hasproteins,-c("subjectid","IL.1b","IL.12.IL.23p40","IL.17A","IL.18","IL.6","IL.8","il17F","MCP.1..Human.","TNF.a",
+                                          "Value.ADIP","Value.CRPM","Value.EIA-ESelectin","Value.EIA-IL-6","Value.EIA-SICAM","Value.EIA-TNF-A", 
+                                          "Value.SVCAM","WaistCircum","BldPrSys","BldPrDia","DEXATotMass","DEXAFat","DEXALean","DEXABMC",
+                                          "UnitsInsTotal","UnitsInsTotalPumpOrLog","UnitsInsBasalOrLongAct","InsDeliveryMethod","weight",
+                                          "height","units_per_kg","adipo_ugml","date","IFN.g"))
+deltavars <- c("efflux.value","sp|P01024|CO3_HUMAN","sp|P02768|ALBU_HUMAN", "sp|P02671|FIBA_HUMAN",  "sp|P02751|FINC_HUMAN",
+                                        "sp|P0C0L4|CO4A_HUMAN",  "sp|P02675|FIBB_HUMAN", "sp|P01023|A2MG_HUMAN",  "sp|P04114|APOB_HUMAN",
+                                        "sp|P02679|FIBG_HUMAN",  "sp|P02647|APOA1_HUMAN", "sp|P06727|APOA4_HUMAN", "sp|P02787|TRFE_HUMAN",
+                                        "sp|P00738|HPT_HUMAN",   "sp|P00751|CFAB_HUMAN", "sp|P00747|PLMN_HUMAN",  "sp|P02790|HEMO_HUMAN", 
+                                        "sp|P01031|CO5_HUMAN",   "sp|P02774|VTDB_HUMAN",  "sp|P08603|CFAH_HUMAN",  "sp|P02748|CO9_HUMAN",
+                                        "sp|P01871|IGHM_HUMAN",  "sp|P00450|CERU_HUMAN",  "sp|P02649|APOE_HUMAN",  "sp|P19823|ITIH2_HUMAN",
+                                        "sp|P00736|C1R_HUMAN",   "sp|P10909|CLUS_HUMAN", "sp|P00734|THRB_HUMAN",  "sp|Q14624|ITIH4_HUMAN",
+                                        "sp|P06396|GELS_HUMAN",  "sp|P01008|ANT3_HUMAN",  "sp|P03952|KLKB1_HUMAN", "sp|P0CG05|LAC2_HUMAN",
+                                        "sp|P36955|PEDF_HUMAN",  "sp|P04004|VTNC_HUMAN",  "sp|P12259|FA5_HUMAN",   "sp|P04217|A1BG_HUMAN", 
+                                        "sp|P07358|CO8B_HUMAN",  "sp|P08697|A2AP_HUMAN", "sp|P02765|FETUA_HUMAN", "sp|P10643|CO7_HUMAN",  
+                                        "sp|P01834|IGKC_HUMAN",  "sp|P35858|ALS_HUMAN",   "sp|P27169|PON1_HUMAN",  "sp|P09871|C1S_HUMAN",  
+                                        "sp|P02749|APOH_HUMAN",  "sp|P51884|LUM_HUMAN",   "sp|P01876|IGHA1_HUMAN", "sp|P07357|CO8A_HUMAN", 
+                                        "sp|P68871|HBB_HUMAN",   "sp|P02654|APOC1_HUMAN", "sp|P01764|HV303_HUMAN", "sp|P36980|FHR2_HUMAN", 
+                                        "sp|P05452|TETN_HUMAN",  "sp|P05156|CFAI_HUMAN",  "sp|O95445|APOM_HUMAN",  "sp|Q96PD5|PGRP2_HUMAN",
+                                        "sp|P18135|KV312_HUMAN", "sp|P43652|AFAM_HUMAN",  "sp|P01779|HV318_HUMAN", "sp|P69905|HBA_HUMAN",  
+                                        "sp|P01781|HV320_HUMAN", "sp|P63261|ACTG_HUMAN", "sp|P80748|LV302_HUMAN", "sp|P01743|HV102_HUMAN",
+                                        "sp|Q96IY4|CBPB2_HUMAN", "sp|P01019|ANGT_HUMAN",  "sp|P02753|RET4_HUMAN",  "sp|P00748|FA12_HUMAN", 
+                                        "sp|P01591|IGJ_HUMAN",   "sp|O14791|APOL1_HUMAN", "sp|Q9UK55|ZPI_HUMAN",   "sp|P02655|APOC2_HUMAN",
+                                        "sp|P02766|TTHY_HUMAN",  "sp|Q03591|FHR1_HUMAN", "sp|P04433|KV309_HUMAN", "sp|P04434|KV310_HUMAN",
+                                        "sp|P01707|LV204_HUMAN", "sp|B9A064|IGLL5_HUMAN", "sp|P07360|CO8G_HUMAN",  "sp|P01861|IGHG4_HUMAN",
+                                        "sp|P02746|C1QB_HUMAN",  "sp|P00740|FA9_HUMAN",   "sp|P00739|HPTR_HUMAN",  "sp|P04208|LV106_HUMAN", 
+                                        "HbA1c","Value.LDL","Value.VLDL","Value.HDL","Value.TG-NET","Value.CHOL","DEXAPercFat",
+                                        "bmi","bmiperc","eis")
+hasproteins_wide <- reshape(hasproteins_keep,idvar = c("analyticid","Age","Gender","Race","Ethnicity","TannerPubicH","TannerBreGen"),
+                            timevar = "visit",v.names = deltavars,direction="wide")
+
+analyticid <- as.matrix(hasproteins_wide$analyticid)
+for (x in deltavars)  {
+  del.x <- paste0("delta.",x) 
+  mo6.x <- paste0(x,".6 month")
+  base.x <- paste0(x,".Baseline")
+  temp <- select(hasproteins_wide,mo6.x) - select(hasproteins_wide,base.x)
+  colnames(temp) <- del.x
+  analyticid <- as.data.frame(cbind(analyticid,temp))
+}
+
+hasproteins_wide <- merge(hasproteins_wide,analyticid,by="analyticid")
+# get rid of participants with only one time point
+hasproteins_wide <- hasproteins_wide[!is.na(hasproteins_wide$`delta.sp|P00740|FA9_HUMAN`),]
+
+# table 1 for participants in protein dataset
+t1_prot <- final_table(data=hasproteins_wide,variables=c("Age","Gender","raceeth","TannerPubicH","TannerBreGen"),group=hasproteins_wide$Treatment.Group,
+                       margin=2,single=0,ron=1)
+
+# create table of deltas by treatment group
+for (i in 1:length(deltavars)) {
+  deltavars[i] <- paste0("delta.",deltavars[i])
+}
+tab_delta_prot <- final_table(data=hasproteins_wide,variables=deltavars,group=hasproteins_wide$Treatment.Group,margin=2,single=0,ron=3,summary.stat = "median")
+
+# correlations of changes in proteins with changes in clinical variables
+protdelt <- grep("sp|",deltavars,value=T,fixed=T)
+otherdelt <- deltavars[!(deltavars %in% protdelt)]
+# ++++++++++++++++++++++++++++
+# flattenCorrMatrix
+# ++++++++++++++++++++++++++++
+# cormat : matrix of the correlation coefficients
+# pmat : matrix of the correlation p-values
+flattenCorrMatrix <- function(cormat, pmat) {
+  ut <- upper.tri(cormat)
+  data.frame(
+    row = rownames(cormat)[row(cormat)[ut]],
+    column = rownames(cormat)[col(cormat)[ut]],
+    cor  =(cormat)[ut],
+    p = pmat[ut]
+    )
+}
+corrout <- rcorr(as.matrix(hasproteins_wide[,deltavars]),type = "spearman")
+corrout <- flattenCorrMatrix(corrout$r, corrout$P)
+corrout <- corrout[corrout$column %in% protdelt,]
+corrout <- corrout[corrout$row %in% otherdelt,]
+
+
+
 
 ```
 
@@ -17,3 +105,18 @@ source("C:/Users/pylell/Documents/GitHub/Gourgari/make final dataset.R")
 # Methods
 
 # Results
+
+```{r echo=FALSE}
+kable(t1_prot,caption = "Table 1a.  Descriptive statistics for participants with proteomics data, by treatment group.  Statistics given are N(%), mean±SD, or median (25th %ile, 75th %ile).  * denotes that the Mannn-Whitney test was used, and ** denotes that Fisher's exact test was used.")
+```
+
+
+```{r echo=FALSE}
+kable(tab_delta_prot,caption = "Table 2.  Descriptive statistics for changes in proteins and other variables, for participants with proteomics data, by treatment group.  Statistics given are median (25th %ile, 75th %ile).  P-values are from the Mann-Whitney test.")
+```
+
+
+```{r echo=FALSE}
+kable(corrout,caption = "Table 3.  Spearman correlation coefficients for changes in proteins with changes in clinical variables.")
+```
+
