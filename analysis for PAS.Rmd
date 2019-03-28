@@ -47,7 +47,7 @@ deltavars <- c("efflux.value","sp|P01024|CO3_HUMAN","sp|P02768|ALBU_HUMAN", "sp|
                                         "sp|P01707|LV204_HUMAN", "sp|B9A064|IGLL5_HUMAN", "sp|P07360|CO8G_HUMAN",  "sp|P01861|IGHG4_HUMAN",
                                         "sp|P02746|C1QB_HUMAN",  "sp|P00740|FA9_HUMAN",   "sp|P00739|HPTR_HUMAN",  "sp|P04208|LV106_HUMAN", 
                                         "HbA1c","Value.LDL","Value.VLDL","Value.HDL","Value.TG-NET","Value.CHOL","DEXAPercFat",
-                                        "bmi","bmi_perc","eis")
+                                        "bmi","bmiperc","eis")
 hasproteins_wide <- reshape(hasproteins_keep,idvar = c("analyticid","Age","Gender","raceeth","TannerPubicH","TannerBreGen"),
                             timevar = "visit",v.names = deltavars,direction="wide")
 
@@ -61,8 +61,21 @@ for (x in deltavars)  {
   analyticid <- as.data.frame(cbind(analyticid,temp))
 }
 hasproteins_wide <- merge(hasproteins_wide,analyticid,by="analyticid")
+# calculate percent change
+analyticid <- as.matrix(hasproteins_wide$analyticid)
+for (x in deltavars)  {
+  delper.x <- paste0("dp.",x) 
+  mo6.x <- paste0(x,".6 month")
+  base.x <- paste0(x,".Baseline")
+  temp <- ((select(hasproteins_wide,mo6.x) - select(hasproteins_wide,base.x))/select(hasproteins_wide,base.x))*100
+  colnames(temp) <- delper.x
+  analyticid <- as.data.frame(cbind(analyticid,temp))
+}
+hasproteins_wide <- merge(hasproteins_wide,analyticid,by="analyticid")
 # get rid of participants with only one time point
 hasproteins_wide <- hasproteins_wide[!is.na(hasproteins_wide$`delta.sp|P00740|FA9_HUMAN`),]
+# check
+#View(hasproteins_wide[,c("deltaper.sp|P01024|CO3_HUMAN","delta.sp|P01024|CO3_HUMAN","sp|P01024|CO3_HUMAN.Baseline","sp|P01024|CO3_HUMAN.6 month")])
 
 # table 1 for participants in protein dataset
 t1_prot <- final_table(data=hasproteins_wide,variables=c("Age","Gender","raceeth","TannerPubicH","TannerBreGen"),group=hasproteins_wide$Treatment.Group,
@@ -70,14 +83,22 @@ t1_prot <- final_table(data=hasproteins_wide,variables=c("Age","Gender","raceeth
 nprot <- nrow(hasproteins_wide)
 
 # create table of deltas by treatment group
+#for (i in 1:length(deltavars)) {
+#  deltavars[i] <- paste0("delta.",deltavars[i])
+#}
+#tab_delta_prot <- final_table(data=hasproteins_wide,variables=deltavars,group=hasproteins_wide$Treatment.Group,margin=2,single=0,ron=3,summary.stat = "median")
+
+# create table of percent deltas by treatment group
+deltapervars <- NULL
 for (i in 1:length(deltavars)) {
-  deltavars[i] <- paste0("delta.",deltavars[i])
+  deltapervars[i] <- paste0("dp.",deltavars[i])
 }
-tab_delta_prot <- final_table(data=hasproteins_wide,variables=deltavars,group=hasproteins_wide$Treatment.Group,margin=2,single=0,ron=3,summary.stat = "median")
+tab_deltaper_prot <- final_table(data=hasproteins_wide,variables=deltapervars,group=hasproteins_wide$Treatment.Group,margin=2,single=0,ron=3,summary.stat = "median")
+
 
 # correlations of changes in proteins with changes in clinical variables
-protdelt <- grep("sp|",deltavars,value=T,fixed=T)
-otherdelt <- deltavars[!(deltavars %in% protdelt)]
+protdelt <- grep("sp|",deltapervars,value=T,fixed=T)
+otherdelt <- deltapervars[!(deltapervars %in% protdelt)]
 # ++++++++++++++++++++++++++++
 # flattenCorrMatrix
 # ++++++++++++++++++++++++++++
@@ -92,7 +113,7 @@ flattenCorrMatrix <- function(cormat, pmat) {
     p = pmat[ut]
     )
 }
-corrout <- rcorr(as.matrix(hasproteins_wide[,deltavars]),type = "spearman")
+corrout <- rcorr(as.matrix(hasproteins_wide[,deltapervars]),type = "spearman")
 corrout <- flattenCorrMatrix(corrout$r, corrout$P)
 corrout <- corrout[corrout$column %in% otherdelt,]
 corrout <- corrout[corrout$row %in% protdelt,]
@@ -135,7 +156,7 @@ x_keep <-select(x,-c("subjectid","Value.ADIP","Value.CRPM","Value.EIA-ESelectin"
                                           "Value.SVCAM","WaistCircum","BldPrSys","BldPrDia","DEXATotMass","DEXAFat","DEXALean","DEXABMC",
                                           "UnitsInsTotal","UnitsInsTotalPumpOrLog","UnitsInsBasalOrLongAct","InsDeliveryMethod","weight",
                                           "height","units_per_kg","adipo_ugml","date","efflux.value","HbA1c","Value.LDL",
-                                          "Value.VLDL","Value.HDL","Value.TG-NET","Value.CHOL","DEXAPercFat","bmi","bmi_perc","eis"))
+                                          "Value.VLDL","Value.HDL","Value.TG-NET","Value.CHOL","DEXAPercFat","bmi","bmiperc","eis"))
 proteinscytokines_wide <- reshape(x_keep,idvar = c("analyticid","Age","Gender","raceeth","TannerPubicH","TannerBreGen"),
                             timevar = "visit",v.names = c(protvars,cytokinevars),direction="wide")
 analyticid <- as.matrix(proteinscytokines_wide$analyticid)
@@ -223,37 +244,29 @@ kable(t1_prot,caption = "Table 1a.  Descriptive statistics for participants with
 ```
 \
 
-```{r echo=FALSE}
-kable(t1b,caption = "Table 1b.  Descriptive statistics for participants with proteomics data and cytokine data.  Statistics given are N(%), mean±SD, or median (25th %ile, 75th %ile).")
-```
-\
 
 ```{r echo=FALSE}
-kable(t1,caption = "Table 1c.  Descriptive statistics for participants with efflux data, by treatment group.  Statistics given are N(%), mean±SD, or median (25th %ile, 75th %ile). * denotes that the Mann-Whitney test was used, and ** denotes that Fisher's exact test was used.")
+kable(t1,caption = "Table 1b.  Descriptive statistics for participants with efflux data, by treatment group.  Statistics given are N(%), mean±SD, or median (25th %ile, 75th %ile). * denotes that the Mann-Whitney test was used, and ** denotes that Fisher's exact test was used.")
 ```
 \
 
 
 ```{r echo=FALSE}
-kable(tab_delta_prot,caption = "Table 2.  Descriptive statistics for changes in proteins and other variables, for participants with proteomics data, by treatment group.  Statistics given are median (25th %ile, 75th %ile).  P-values are from the Mann-Whitney test.")
+kable(tab_deltaper_prot,caption = "Table 2.  Descriptive statistics for percent changes in proteins and other variables, for participants with proteomics data, by treatment group.  Statistics given are median (25th %ile, 75th %ile).  P-values are from the Mann-Whitney test.")
 ```
 \
 
 ```{r echo=FALSE}
-kable(corrout,caption = "Table 3.  Spearman correlation coefficients for changes in proteins with changes in clinical variables.")
+kable(corrout,caption = "Table 3.  Spearman correlation coefficients for percent changes in proteins with percent changes in clinical variables.")
+```
+\
+
+
+```{r echo=FALSE}
+kable(effluxtab,caption = "Table 4.  Unadjusted changes in efflux, by treatment group.  Statistics given are mean±SD.")
 ```
 \
 
 ```{r echo=FALSE}
-kable(corrcyto,caption = "Table 4.  Spearman correlation coefficients for changes in proteins with changes in cytokines.")
-```
-\
-
-```{r echo=FALSE}
-kable(effluxtab,caption = "Table 5.  Unadjusted changes in efflux, by treatment group.  Statistics given are mean±SD.")
-```
-\
-
-```{r echo=FALSE}
-kable(mod,caption = "Table 6.  Linear model of change in efflux by treatment group, adjusted for baseline HDL.  Statistics given are beta coefficients and 95% confidence intervals.")
+kable(mod,caption = "Table 5.  Linear model of change in efflux by treatment group, adjusted for baseline HDL.  Statistics given are beta coefficients and 95% confidence intervals.")
 ```
