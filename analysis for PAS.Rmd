@@ -94,7 +94,7 @@ for (i in 1:length(deltavars)) {
   deltapervars[i] <- paste0("dp.",deltavars[i])
 }
 tab_deltaper_prot <- final_table(data=hasproteins_wide,variables=deltapervars,group=hasproteins_wide$Treatment.Group,margin=2,single=0,ron=3,summary.stat = "median")
-
+tab_deltaper_prot$adjp <- p.adjust(tab_deltaper_prot$`P Value`,method="BH")
 
 # correlations of changes in proteins with changes in clinical variables
 protdelt <- grep("sp|",deltapervars,value=T,fixed=T)
@@ -117,7 +117,7 @@ corrout <- rcorr(as.matrix(hasproteins_wide[,deltapervars]),type = "spearman")
 corrout <- flattenCorrMatrix(corrout$r, corrout$P)
 corrout <- corrout[corrout$column %in% otherdelt,]
 corrout <- corrout[corrout$row %in% protdelt,]
-
+corrout$adjp <- p.adjust(corrout$p)
 
 # who has protein data and cytokine data
 x <- alldata[!is.na(alldata$subjectid) & !is.na(alldata$IL.1b),]
@@ -181,6 +181,7 @@ corrcyto <- rcorr(as.matrix(proteinscytokines_wide[,deltavars2]),type = "spearma
 corrcyto <- flattenCorrMatrix(corrcyto$r, corrcyto$P)
 corrcyto <- corrcyto[corrcyto$column %in% cytodelt,]
 corrcyto <- corrcyto[corrcyto$row %in% protdelt,]
+
 
 # table 1 for participants in protein dataset
 t1b <- final_table(data=proteinscytokines_wide,variables=c("Age","Gender","raceeth","TannerPubicH","TannerBreGen"),group=proteinscytokines_wide$dummy,
