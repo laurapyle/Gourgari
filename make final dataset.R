@@ -237,4 +237,7 @@ label(alldata$TannerPubicH) = "Tanner by pubic hair"
 label(alldata$Age)="Age"
 label(alldata$Gender)="Gender"
 
+# write final dataset
+write.csv(alldata,file="H:\\Endocrinology\\Nadeau\\T1D Exchange metformin and lipids\\Data\\final_merged_data.csv")
+
 
