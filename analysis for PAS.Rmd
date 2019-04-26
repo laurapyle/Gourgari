@@ -17,6 +17,12 @@ source("c:/Users/pylell/Documents/GitHub/General-code/temp_table1.r")
 
 source("c:/Users/pylell/Documents/GitHub/General-code/01_functions.r")
 
+# need to combine race/ethnicity 
+alldata$raceeth[alldata$Ethnicity=="Hispanic or Latino"] <- "Hispanic"
+alldata$raceeth[alldata$Ethnicity !="Hispanic or Latino" & alldata$Race=="White"] <- "Non-hispanic White"
+alldata$raceeth[is.na(alldata$raceeth)] <- "Other"
+label(alldata$raceeth) = "Race/ethnicity"
+
 # for subjects with protein data, make a wide dataset and calculate deltas for protein and clinical variables
 hasproteins <- alldata[!is.na(alldata$subjectid),]
 # make a wide dataset for those with protein dataset
@@ -218,6 +224,26 @@ effluxtab <- final_table(data=hasefflux_wide,variables="delta.efflux.value",
 # change in efflux by treatment group, adjusted for baseline HDL
 mod <- lm(data=hasefflux_wide, delta.efflux.value ~ Treatment.Group + Value.HDL.Baseline )
 mod <- mod_tab(mod)
+
+# plots - save files
+jpeg("H:\\Endocrinology\\Nadeau\\T1D Exchange metformin and lipids\\PAS 2019 abstract\\PGRP2_eis.jpg")
+plot(hasproteins_wide$dp.eis,hasproteins_wide$`dp.sp|Q96PD5|PGRP2_HUMAN`,xlab="% change in eIS",ylab="% change in PGRP2")
+abline(lm(`dp.sp|Q96PD5|PGRP2_HUMAN`~dp.eis,data=hasproteins_wide))
+dev.off()
+
+jpeg("H:\\Endocrinology\\Nadeau\\T1D Exchange metformin and lipids\\PAS 2019 abstract\\PGRP2_tg.jpg")
+plot(hasproteins_wide$`dp.Value.TG-NET`,hasproteins_wide$`dp.sp|Q96PD5|PGRP2_HUMAN`,xlab="% change in TG",ylab="% change in PGRP2")
+abline(lm(`dp.sp|Q96PD5|PGRP2_HUMAN`~`dp.Value.TG-NET`,data=hasproteins_wide))
+dev.off()
+
+jpeg("H:\\Endocrinology\\Nadeau\\T1D Exchange metformin and lipids\\PAS 2019 abstract\\PGRP2_VLDL.jpg")
+plot(hasproteins_wide$dp.Value.VLDL~hasproteins_wide$`dp.sp|Q96PD5|PGRP2_HUMAN`,xlab="% change in VLDL",ylab="% change in PGRP2")
+abline(lm(`dp.sp|Q96PD5|PGRP2_HUMAN`~dp.Value.VLDL,data=hasproteins_wide))
+dev.off()
+
+
+#a <- boxplot(hasproteins_wide$`dp.sp|P01023|A2MG_HUMAN`,hasproteins_wide$Treatment.Group,names=c('Metformin','Placebo'),
+ #       outline=FALSE)
 
 ```
 
