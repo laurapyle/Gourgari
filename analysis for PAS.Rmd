@@ -102,6 +102,14 @@ for (i in 1:length(deltavars)) {
 tab_deltaper_prot <- final_table(data=hasproteins_wide,variables=deltapervars,group=hasproteins_wide$Treatment.Group,margin=2,single=0,ron=3,summary.stat = "median")
 tab_deltaper_prot$adjp <- p.adjust(tab_deltaper_prot$`P Value`,method="BH")
 
+# create a table of clinical vars at each time point
+clinvars <- c("HbA1c.Baseline","Value.LDL.Baseline","Value.VLDL.Baseline","Value.HDL.Baseline","Value.TG-NET.Baseline",
+              "Value.CHOL.Baseline","DEXAPercFat.Baseline","bmi.Baseline","bmiperc.Baseline","eis.Baseline","HbA1c.6 month",
+              "Value.LDL.6 month","Value.VLDL.6 month","Value.HDL.6 month","Value.TG-NET.6 month","Value.CHOL.6 month",
+              "DEXAPercFat.6 month","bmi.6 month","bmiperc.6 month","eis.6 month")
+tab_clinvars <- final_table(data=hasproteins_wide,variables=clinvars,group=hasproteins_wide$Treatment.Group,margin=2,single=0,ron=3,summary.stat = "median")
+tab_clinvars[,1] <- clinvars
+
 # correlations of changes in proteins with changes in clinical variables
 protdelt <- grep("sp|",deltapervars,value=T,fixed=T)
 otherdelt <- deltapervars[!(deltapervars %in% protdelt)]
@@ -225,6 +233,13 @@ effluxtab <- final_table(data=hasefflux_wide,variables="delta.efflux.value",
 mod <- lm(data=hasefflux_wide, delta.efflux.value ~ Treatment.Group + Value.HDL.Baseline )
 mod <- mod_tab(mod)
 
+# repeat efflux analysis for people with proteomics data
+effluxtab_prot <- final_table(data=hasefflux_wide[hasefflux_wide$analyticid %in% hasproteins_wide$analyticid,],variables="delta.efflux.value",
+                  group=hasefflux_wide[hasefflux_wide$analyticid %in% hasproteins_wide$analyticid,]$Treatment.Group,margin=2,single=0,ron=3)
+mod_prot <- lm(data=hasefflux_wide[hasefflux_wide$analyticid %in% hasproteins_wide$analyticid,], delta.efflux.value ~ Treatment.Group + Value.HDL.Baseline )
+mod_prot <- mod_tab(mod_prot)
+
+
 # plots - save files
 jpeg("H:\\Endocrinology\\Nadeau\\T1D Exchange metformin and lipids\\PAS 2019 abstract\\PGRP2_eis.jpg")
 plot(hasproteins_wide$dp.eis,hasproteins_wide$`dp.sp|Q96PD5|PGRP2_HUMAN`,xlab="% change in eIS",ylab="% change in PGRP2")
@@ -267,33 +282,50 @@ There were `r nprot` partcipants with protein data at baseline and 6 months.  Th
 
 
 ```{r echo=FALSE}
-kable(t1_prot,caption = "Table 1a.  Descriptive statistics for participants with proteomics data, by treatment group.  Statistics given are N(%), mean±SD, or median (25th %ile, 75th %ile).  * denotes that the Mann-Whitney test was used, and ** denotes that Fisher's exact test was used.")
+kable(t1_prot,caption = "Table 1a.  Descriptive statistics for participants with proteomics data, by treatment group.  Statistics given are N(%), mean?SD, or median (25th %ile, 75th %ile).  * denotes that the Mann-Whitney test was used, and ** denotes that Fisher's exact test was used.")
 ```
-\
+<br>
 
 
 ```{r echo=FALSE}
-kable(t1,caption = "Table 1b.  Descriptive statistics for participants with efflux data, by treatment group.  Statistics given are N(%), mean±SD, or median (25th %ile, 75th %ile). * denotes that the Mann-Whitney test was used, and ** denotes that Fisher's exact test was used.")
+kable(t1,caption = "Table 1b.  Descriptive statistics for participants with efflux data, by treatment group.  Statistics given are N(%), mean?SD, or median (25th %ile, 75th %ile). * denotes that the Mann-Whitney test was used, and ** denotes that Fisher's exact test was used.")
 ```
-\
+<br>
 
 
 ```{r echo=FALSE}
-kable(tab_deltaper_prot,caption = "Table 2.  Descriptive statistics for percent changes in proteins and other variables, for participants with proteomics data, by treatment group.  Statistics given are median (25th %ile, 75th %ile).  P-values are from the Mann-Whitney test.")
+kable(tab_deltaper_prot,caption = "Table 2a.  Descriptive statistics for percent changes in proteins and other variables, for participants with proteomics data, by treatment group.  Statistics given are median (25th %ile, 75th %ile).  P-values are from the Mann-Whitney test.")
 ```
-\
+<br>
+
+
+```{r echo=FALSE}
+kable(tab_clinvars,caption = "Table 2b.  Descriptive statistics for clinical variables, for participants with proteomics data, by treatment group.  Statistics given are median (25th %ile, 75th %ile).  P-values are from the Mann-Whitney test.")
+```
+<br>
+
 
 ```{r echo=FALSE}
 kable(corrout,caption = "Table 3.  Spearman correlation coefficients for percent changes in proteins with percent changes in clinical variables.")
 ```
-\
+<br>
 
 
 ```{r echo=FALSE}
-kable(effluxtab,caption = "Table 4.  Unadjusted changes in efflux, by treatment group.  Statistics given are mean±SD.")
+kable(effluxtab,caption = "Table 4.  Unadjusted changes in efflux, by treatment group.  Statistics given are mean +/- SD.")
 ```
-\
+<br>
 
 ```{r echo=FALSE}
 kable(mod,caption = "Table 5.  Linear model of change in efflux by treatment group, adjusted for baseline HDL.  Statistics given are beta coefficients and 95% confidence intervals.")
+```
+<br>
+
+```{r echo=FALSE}
+kable(effluxtab_prot,caption = "Table 6.  Unadjusted changes in efflux for participants with proteomics data, by treatment group.  Statistics given are mean +/- SD.")
+```
+<br>
+
+```{r echo=FALSE}
+kable(mod_prot,caption = "Table 7.  Linear model of change in efflux by treatment group for participants with proteomics data, adjusted for baseline HDL.  Statistics given are beta coefficients and 95% confidence intervals.")
 ```
