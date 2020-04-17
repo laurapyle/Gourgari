@@ -1,0 +1,61 @@
+---
+title: "Gourgari - Analysis for PAS"
+author: "Laura Pyle"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,warning = FALSE)
+
+library(tableone)
+library(Hmisc)
+
+# read in proteomics data
+source("C:/Users/pylell/Documents/GitHub/Gourgari/make final dataset.R")
+
+source("c:/Users/pylell/Documents/GitHub/General-code/temp_table1.r")
+
+source("c:/Users/pylell/Documents/GitHub/General-code/01_functions.r")
+
+# read in whole cohort
+whole <- read.csv("H:\\Endocrinology\\Nadeau\\T1D Exchange metformin and lipids\\Data\\clinical data whole cohort.csv")
+# need to combine race/ethnicity 
+whole$raceeth[whole$Ethnicity=="Hispanic or Latino"] <- "Hispanic"
+whole$raceeth[whole$Ethnicity !="Hispanic or Latino" & whole$Race=="White"] <- "Non-hispanic White"
+whole$raceeth[is.na(whole$raceeth)] <- "Other"
+label(whole$raceeth) = "Race/ethnicity"
+
+# for subjects with protein data, make a wide dataset and calculate deltas for protein and clinical variables
+hasproteins <- alldata[!is.na(alldata$subjectid),]
+whole$cohort <- "Original"
+whole[whole$analyticid %in% hasproteins$analyticid,]$cohort <- "Proteomics"
+#levels(whole$cohort) <- c("Proteomics","Original")
+#whole[is.na(whole$cohort),] <- "Original"
+
+whole_base <- whole[whole$visit=="Baseline",]
+whole_base <- whole_base[!is.na(whole_base$analyticid),]
+whole_base$Age <- as.numeric(as.character(whole_base$Age))
+whole_base$bmiperc <- as.numeric(as.character(whole_base$bmiperc))
+whole_base$DEXAFat <- as.numeric(as.character(whole_base$DEXAFat))
+whole_base$TannerBreGen <- as.factor(whole_base$TannerBreGen)
+whole_base$TannerPubicH <- as.factor(whole_base$TannerPubicH)
+
+# table 1 for participants in protein dataset
+
+comp_table <- CreateTableOne(vars=c("Age","TannerPubicH","TannerBreGen","bmiperc","DEXAFat"), strata="cohort",data=whole_base, test=TRUE)
+comp_table <- print(comp_table,varLabels=TRUE)
+
+
+```
+
+# Comparison of baseline characteristics in the placebo group in the proteomics cohort compared to the placebo group in the whole cohort
+
+```{r echo=FALSE}
+kable(comp_table,caption = "")
+```
+<br>
+
+
+
+
